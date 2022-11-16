@@ -4,12 +4,14 @@ import re
 import os
 import sys
 import argparse
+import hashlib
+import magic
 import yaml
 import sqlite3
 from datetime import datetime
 
 DEFAULT_ROM_FILE_EXTS = ['iso', 'zip', 'sfc', 'gba', 'gbc', 'gb', 'md', 'n64',
-                         'nes', '32x', 'gg', 'sms', 'bin']
+                         'nes', '32x', 'gg', 'sms', 'bin', 'exe']
 PLATFORMS = [
     '3DO',
     'Amstrad CPC',
@@ -66,6 +68,7 @@ PLATFORMS = [
     'Sony PlayStation',
     'Uzebox',
     'Vectrex',
+    'Windows',
     'Z-Machine'
 ]
 
@@ -74,7 +77,7 @@ def option_list(options):
 
     Args:
         options: String containing space-delimited key-value pairs in the form <name>=<value>
-    
+
     Returns:
         dictionary containing parsed options
 
@@ -88,9 +91,9 @@ def option_list(options):
         parsed = pair.split('=', maxsplit=1)
         if len(parsed) < 2:
             raise argparse.ArgumentTypeError("Option \"{}\" is not formatted correctly".format(pair))
-        
+
         pairs.update({parsed[0]: parsed[1]})
-    
+
     return(pairs)
 
 
@@ -99,7 +102,7 @@ def directory(path):
 
     Args:
         path: directory path
-    
+
     Returns:
         directory path
 
@@ -112,7 +115,212 @@ def directory(path):
         return path
 
 
-def scan_for_filetypes(dir, types):
+IGNORE_TYPES = [
+        "7-zip archive data",
+        "Algol 68 source",
+        "Applesoft BASIC program data",
+        "color profile 2.0",
+        "Crunch compressed texture",
+        "DOS batch file",
+        "DOS executable (block device driver)",
+        "DOS/MBR boot sector",
+        "executable",
+        "FLAC audio bitstream data",
+        "IFF data",
+        "InnoSetup Log",
+        "Intel ia64 COFF object file",
+        "ISO Media",
+        "ISO-8859 text ",
+        "ISO-8859 text",
+        "Java archive data (JAR)",
+        "Java KeyStore",
+        "Mach-O 64-bit x86_64 bundle",
+        "Mach-O 64-bit x86_64 dynamically linked shared library",
+        "Microsoft color profile 2.1",
+        "MPEG sequence",
+        "MS Windows 95 Internet shortcut text (URL=<http://www.rapapuru.com/>)",
+        "MS Windows 95 Internet shortcut",
+        "MS Windows icon resource - 11 icons",
+        "MS Windows icon resource",
+        "NekoVM bytecode",
+        "Ogg data",
+        "OpenPGP Public Key",
+        "OpenType font data /run/media/mmcblk0p1/deck_sync/HG/GenderBender/renpy/common/fa5.otf",
+        "OpenType font data",
+        "Paint.NET image data",
+        "PC bitmap ",
+        "PC bitmap",
+        "PDF document",
+        "python 3.8 byte-compiled",
+        "raw G3 (Group 3) FAX",
+        "RIFF (big-endian) data",
+        "RIFF (little-endian) data",
+        "Spectrum .TAP data",
+        "Standard MIDI data ",
+        "Standard MIDI data",
+        "Sun KCMS color profile 2.0",
+        "SysEx File",
+        "Targa image data",
+        "TTComp archive data",
+        "Unicode text",
+        "Windows desktop.ini",
+        'Adobe Photoshop Image',
+        'Apple Desktop Services Store',
+        'ASCII text',
+        'Audio file with ID3 version ',
+        'C source',
+        'C source, ASCII text',
+        'C++ source',
+        'CSV text',
+        'data',
+        'DIY-Thermocam',
+        'ELF 32-bit LSB shared object',
+        'ELF 64-bit LSB shared object',
+        'empty',
+        'exported SGML document',
+        'Generic INItialization configuration',
+        'GIF image data',
+        'GIMP XCF image data',
+        'HTML document',
+        'JPEG image data',
+        'JSON data',
+        'MPEG ADTS',
+        'MS Windows 3.1 help',
+        'MS Windows help file Content',
+        'MS Windows shortcut',
+        'Non-ISO extended-ASCII text',
+        'Ogg data, Vorbis audio',
+        'PC bitmap',
+        'PDF document ',
+        'PE32 executable (DLL)',
+        'PE32+ executable (DLL)',
+        'PEM certificate',
+        'PEM RSA private key',
+        'PNG image data',
+        'POSIX shell script',
+        'POSIX tar archive',
+        'python 2.7 byte-compiled',
+        'RAR archive data',
+        'Ruby script',
+        'SVG Scalable Vector Graphics image',
+        'TrueType Font data,',
+        'Web Open Font Format',
+        'WebAssembly',
+        'WebM',
+        'Windows WIN.INI',
+        'XML 1.0 document',
+        'Zip archive data',
+        'zlib compressed data',
+
+        # Revisit?
+        'Python script, ASCII text',
+        'Python script text executable Python script',
+        'Python script, Unicode text',
+
+        # Is there a runner for mac binaries?
+        "Mach-O 64-bit x86_64 executable",
+        "Mach-O universal binary",
+    ]
+
+
+
+IGNORE_BINARIES = set([
+    "ffmpeg",
+    "zsyncmake",
+    "zsync",
+    "unitycrashhandler64",
+    "unitycrashhandler32",
+    "python",
+    "pythonw",
+    "notification_helper",
+    "dxwebsetup",
+    "jjs",
+    "qgen",
+    "pack200",
+    "javacpl",
+    "java.exe",
+    "unins000",
+    "ue4prereqsetup_x64",
+    "uninstaller",
+    "config",
+    "unpack200",
+    "resetconfig",
+    "claunchus",
+    "servertool",
+    "orbd",
+    "nwjc",
+    "policytool",
+    "rmiregistry",
+    "cwebp",
+    "ueprereqsetup_x64",
+    "tnameserv",
+    "launcher",
+    "subprocess",
+    "ktab",
+    "klist",
+    "kinit",
+    "jp2launcher",
+    "jabswitch",
+    "pysemver",
+    "payload",
+    "rmid",
+    "java",
+    "vcredist-x64",
+    "vcredist-x86",
+    "vcredist_x64",
+    "vcredist_x86",
+    "javaw",
+    "javaws",
+    "opensavefolder",
+    ])
+
+
+LINUX_EXECUTABLES = [
+    "ELF 32-bit LSB",
+    "ELF 64-bit LSB",
+]
+WINDOWS_EXECUTABLES = [
+    "PE32 executable",
+    "PE32+ executable",
+]
+
+class FileIdentifier:
+    def __init__(self, path):
+        self._path = path
+
+        self._mime = magic.from_file(self._path)
+
+        if any([self._mime.startswith(tmp) for tmp in IGNORE_TYPES]):
+            self._platform = None
+            self._runner   = None
+
+        elif any([self._path.lower().endswith(tmp) for tmp in IGNORE_BINARIES]):
+            self._platform = None
+            self._runner   = None
+
+        elif any([self._path.lower().endswith(tmp + ".exe") for tmp in IGNORE_BINARIES]):
+            self._platform = None
+            self._runner   = None
+
+        elif any([self._mime.startswith(tmp) for tmp in LINUX_EXECUTABLES]):
+            self._platform = "Linux"
+            self._runner = "linux"
+
+        elif any([self._mime.startswith(tmp) for tmp in WINDOWS_EXECUTABLES]):
+            self._platform = "Windows"
+            self._runner = "wine"
+        else:
+            self._platform = "Unknown"
+            self._runner = "unknown"
+
+        # To handle: "DOS executable (COM)"
+
+
+    def get_platform_runner(self):
+        return self._platform, self._runner
+
+
+def scan_for_supported_files(fdir, types, files = None):
     """Scans a directory for all files matching a list of extension types.
 
     Args:
@@ -125,23 +333,40 @@ def scan_for_filetypes(dir, types):
     Raises:
         FileNotFoundError: Directory does not exist.
     """
+    if files is None:
+        files = set()
 
-    files = set()
-    with os.scandir(dir) as it:
+
+    with os.scandir(fdir) as it:
         for entity in it:
             if entity.is_file():
+                entity_path = os.path.join(fdir, entity.name)
+
+                # fileid = FileIdentifier(entity_path)
+                # platform, runner = fileid.get_platform_runner()
+
+                # if not platform:
+                #     continue
+                # print(fileid._mime, entity_path)
+
+                if any([entity.name.lower().endswith(tmp + ".exe") for tmp in IGNORE_BINARIES]):
+                    continue
+
+
                 fn_delimited = entity.name.split(os.extsep)
                 try:
                     if(fn_delimited[len(fn_delimited) - 1].lower() in types):
-                        files.add(os.path.join(dir, entity.name))
+                        files.add(entity_path)
                 except IndexError:
                     pass
+            if entity.is_dir():
+                dirp = os.path.join(fdir, entity.name)
+                files |= scan_for_supported_files(dirp, types)
     return files
-
 
 def main():
     parser = argparse.ArgumentParser(description='Scan a directory for ROMs to add to Lutris.')
-    
+
     # Required arguments
     parser.add_argument('-d', '--directory', type=directory, required=True,
                         help='Directory to scan for games.')
@@ -189,33 +414,115 @@ Do not write YML files or alter Lutris database, only print data to be written o
     except sqlite3.OperationalError:
         print("SQLite error, is {} a valid Lutris database?".format(args.lutris_database))
         sys.exit(1)
-    game_id = cur.fetchone()[0] + 1
-    
+
+    game_id = cur.fetchone()[0]
+    if game_id is None:
+        game_id = 0
+
+    game_id = game_id + 1
+
+    file_types = args.file_types
+
+    if args.platform== "Windows":
+        file_types = ['exe']
+
     # Scan dir for ROMs
-    files = scan_for_filetypes(args.directory, args.file_types)
-    for file in files:
+    files = scan_for_supported_files(args.directory, args.file_types)
+
+    for game_file in files:
+
         ts = int(datetime.utcnow().timestamp())
 
         # Generate game name and slug from filename
-        game = re.sub(r"\..*", "", os.path.basename(file))  # Strip extension
+        game = re.sub(r"\..*", "", os.path.basename(game_file))  # Strip extension
         for token in args.strip_filename:
             game = game.replace(token, "")                  # Strip tokens
         game = re.sub(r"\s+", " ", game).strip(" ")         # Remove excess whitespace
+
+
+        if args.platform== "Windows":
+            dirp = os.path.split(game_file)[0]
+
+            alt_name = os.path.split(dirp)[-1]
+            if game == "Game":
+                game = alt_name
 
         slug = re.sub(r"[^0-9A-Za-z']", " ", game)          # Split on nonword characters
         slug = slug.replace("'", "")                        # Strip apostrophe
         slug = re.sub(r"\s+", "-", slug).strip("-").lower() # Replace whitespace with dashes
 
         # Data for YML file
-        config_file = '{slug}-{ts}'.format(slug=slug, ts=ts)
+        # config_file = '{slug}-{ts}'.format(slug=slug, ts=ts)
+        path_hash = hashlib.md5(game_file.encode("utf-8")).hexdigest()
+        config_file = '{slug}-{hash}'.format(slug=slug, hash=path_hash)
+        slug = config_file
         config_file_path = os.path.join(args.lutris_yml_dir, "{}.yml".format(config_file))
-        config = {
-            args.runner: {},
-            "game": {
-                "main_file": file
-            },
-            "system": {}
-        }
+
+        if args.platform== "Windows":
+
+
+            bad = set([
+                "ffmpeg",
+                "zsyncmake",
+                "zsync",
+                "UnityCrashHandler64",
+                "UnityCrashHandler32",
+                "python",
+                "pythonw",
+                "notification_helper",
+                "dxwebsetup",
+                "jjs",
+                "javacpl",
+                "java-rmi",
+                "unins000",
+                "Uninstaller",
+                "Config",
+                "unpack200",
+                "ResetConfig",
+                "CLaunchUS",
+                "servertool",
+                "orbd",
+                "nwjc",
+                "policytool",
+                "rmiregistry",
+                "cwebp",
+                "UEPrereqSetup_x64",
+                "tnameserv",
+                "Launcher",
+                "subprocess",
+                "ktab",
+                "klist",
+                "kinit",
+                "jp2launcher",
+                "jabswitch",
+                "pysemver",
+                "payload",
+                "rmid",
+                "java",
+                "javaw",
+                "javaws",
+                "OpenSaveFolder",
+                ])
+
+            if game in bad:
+                continue
+
+            config = {
+                args.runner: {},
+                "game": {
+                    "exe"         : game_file,
+                    "working_dir" : dirp,
+                },
+                "system": {}
+            }
+        else:
+            config = {
+                args.runner: {},
+                "game": {
+                    "main_file": game_file
+                },
+                "system": {}
+            }
 
         if args.game_options is not None:
             config['game'].update(args.game_options)
@@ -247,22 +554,34 @@ Do not write YML files or alter Lutris database, only print data to be written o
 
         # Output to console
         if args.no_write:
-            print("file: {}".format(file))
+            print("file: {}".format(game_file))
             print("SQLite:\n{}".format(values)),
             print("YML at {ymlfile}:\n{config}\n".format(ymlfile=config_file_path,
                                                          config=yaml.dump(config, default_flow_style=False)))
-        
+
         # Write to DB/filesystem
         else:
-            with open(config_file_path, 'w') as f:
-                yaml.dump(config, f, default_flow_style=False)
-            
-            query = "INSERT INTO games ({columns}) VALUES ({placeholders})".format(
-                columns = ','.join(values.keys()),
-                placeholders = ','.join('?' * len(values))
-            )
 
-            cur.execute(query, list(values.values()))
+
+            cur.execute("SELECT count(*) FROM games WHERE slug = ?", (values['slug'], ))
+            have = cur.fetchone()[0]
+
+            if not have:
+                print("New game: '{slug}'".format(slug=values['slug']))
+
+                print("Writing:", config_file_path)
+                with open(config_file_path, 'w') as f:
+                    yaml.dump(config, f, default_flow_style=False)
+
+                query = "INSERT INTO games ({columns}) VALUES ({placeholders})".format(
+                    columns = ','.join(values.keys()),
+                    placeholders = ','.join('?' * len(values))
+                )
+
+                cur.execute(query, list(values.values()))
+            else:
+                print("Already have:", values['slug'])
+
             conn.commit()
 
         game_id += 1
