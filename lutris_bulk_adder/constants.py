@@ -1,6 +1,57 @@
 
-DEFAULT_ROM_FILE_EXTS = ['iso', 'zip', 'sfc', 'gba', 'gbc', 'gb', 'md', 'n64',
-						 'nes', '32x', 'gg', 'sms', 'bin', 'exe']
+
+# This is basically a perf optimization, if a file has an extension, and we recognize
+# that extension, we can skip running magic on the file (which can be quite slow), assuming
+# we know it will never contain executable contents.
+NON_EXECUTABLE_EXTENSIONS = set([
+	".cf", ".cs", ".db", ".dx", ".en", ".ex", ".gs", ".gz", ".ja", ".jk",
+	".js", ".mo", ".ms", ".nw", ".pf", ".pk", ".po", ".ps", ".py", ".qm",
+	".rb", ".so", ".sx", ".ts", ".tx", ".vs", ".002", ".003", ".085", ".092",
+	".10c", ".155", ".358", ".641", ".960", ".aac", ".abc", ".acb", ".acf", ".afa",
+	".aib", ".ain", ".alm", ".app", ".awb", ".bak", ".bat", ".bfc", ".bmp", ".bsd",
+	".cab", ".cat", ".caw", ".cdx", ".cfg", ".cfu", ".cmd", ".cnt", ".cpl", ".css",
+	".csv", ".dat", ".dds", ".din", ".dlc", ".dll", ".dml", ".dof", ".dsv", ".dxt",
+	".ecm", ".efk", ".egg", ".eot", ".es3", ".exp", ".fdc", ".fnl", ".fnt", ".gif",
+	".hdt", ".hlp", ".ici", ".ico", ".inc", ".ini", ".jfc", ".jpg", ".jsa", ".kep",
+	".kgt", ".kra", ".ksd", ".lds", ".lib", ".lnk", ".log", ".m4a", ".mab", ".map",
+	".mau", ".max", ".mbs", ".md5", ".mdb", ".mft", ".mib", ".mid", ".mld", ".mp3",
+	".mp4", ".mps", ".msb", ".msg", ".msi", ".mtl", ".nut", ".obj", ".ogg", ".ogv",
+	".old", ".otf", ".pak", ".pck", ".pdb", ".pdf", ".pdn", ".pem", ".php", ".pk3",
+	".pkg", ".png", ".pos", ".ps1", ".psd", ".psf", ".pth", ".pxd", ".pxi", ".pxm",
+	".pyc", ".pyd", ".pyi", ".pyo", ".pyx", ".qsp", ".rar", ".rbt", ".rdt", ".red",
+	".reg", ".rgb", ".rio", ".rpa", ".rpo", ".rpy", ".rsp", ".rst", ".rtf", ".sav",
+	".scn", ".sf2", ".sfk", ".sig", ".sli", ".slk", ".sln", ".src", ".sse",
+	".suf", ".suo", ".svg", ".swf", ".tar", ".tpp", ".tps", ".ttf", ".txt", ".url",
+	".usm", ".vbs", ".vdf", ".vis", ".wav", ".win", ".wma", ".xcf", ".xml", ".xmp",
+	".xp3", ".2019", ".2022", ".aiff", ".apeg", ".asar", ".aspx", ".bank", ".bdic",
+	".clip", ".coms", ".data", ".demo", ".docx", ".doll", ".epic", ".file", ".flac",
+	".game", ".hash", ".html", ".icns", ".info", ".ipk3", ".jfif", ".jpeg", ".json",
+	".mact", ".mcat", ".mcdb", ".mesh", ".meta", ".ndll", ".nexe", ".node", ".nson",
+	".old2", ".pack", ".qsrc", ".ress", ".rpyb", ".rpyc", ".rpym", ".ruo1", ".sai2",
+	".save", ".skin", ".toml", ".ucas", ".utoc", ".wasm", ".webm", ".webp", ".woff",
+	".wolf", ".wopl", ".wopn", ".xlsx", ".yaml", ".rgss3a", ".unity3d", ".vndata",
+	".edith", ".rpgmvp", ".rpgmvo", ".rpymc", ".assets", ".resource", ".atlas",
+	".rpgsave", ".sxstorage", ".bundle", ".rmmzsave", ".efkefc", ".locale", ".outfit",
+	".manifest", ".config", ".browser", ".rxdata", ".dylib", ".properties",
+	".translate", ".rvdata", ".rvdata2", ".efkmodel", ".png_", ".efkmat",
+	'._pth', '.access', '.apache', '.aseprite', '.asset', '.certs', '.controls',
+	'.csproj', '.db-shm', '.db-wal', '.desktop', '.dxvk-cache', '.edbkup', '.extend',
+	'.gamepad', '.h', '.index', '.iso', '.json_', '.libraries', '.license', '.m4a_',
+	'.mplus', '.ogg_', '.player', '.plist', '.png~', '.policy', '.project', '.qproj',
+	'.quest', '.r3389', '.r4219', '.rpgproject', '.rvdata', '.rvproj2', '.rxproj',
+	'.sazanami', '.security', '.sh', '.sqlite', '.stage', '.sumrndmdde', '.swatch',
+	'.template', '.trans', '.typed', '.union', '.winmd', '.woff2', '.xxxxx'
+])
+
+# magic cannot id snes cart images. Annoying.
+SNES_EXT = set(['.smc'])
+N64_EXT  = set(['.v64'])
+GBA_EXT  = set(['.gba'])
+
+DEFAULT_ROM_FILE_EXTS = SNES_EXT | \
+		N64_EXT | \
+		GBA_EXT
+
 PLATFORMS = [
 	'3DO',
 	'Amstrad CPC',
@@ -158,6 +209,75 @@ IGNORE_TYPES = [
 		'XML 1.0 document',
 		'Zip archive data',
 		'zlib compressed data',
+		'Alias Maya Image File',
+		'AmigaOS loadseg()ble executable/binary',
+		'AmigaOS object/library data',
+		'Apple DiskCopy 4.2 image IB',
+		'AppleDouble encoded Macintosh file',
+		'assembler source',
+		'COM executable for DOS',
+		'Composite Document File V2 Document',
+		'current ar archive',
+		'dBase III DBT',
+		'dBase IV DBT',
+		'Device independent bitmap graphic',
+		'Embedded OpenType (EOT)',
+		'GLS_BINARY_LSB_FIRST',
+		'GNU gettext message catalogue',
+		'GNU message catalog (little endian)',
+		'GTA audio index data (SDT)',
+		'gzip compressed data',
+		'hp200 (68010) BSD',
+		'InnoSetup messages',
+		'Intel 80386 COFF object file',
+		'International EBCDIC text',
+		'ISO 9660 CD-ROM filesystem data \'CHRONICLES01\'',
+		'Linux rev 1813781535.25586 ext4 filesystem data',
+		'Linux rev 1919100603.21091 ext3 filesystem data',
+		'Linux/i386 core file of',
+		'LX executable (device driver) (console)',
+		'Mac OS X icon',
+		'MacBinary',
+		'Matlab v4 mat-file',
+		'Microsoft ASF',
+		'Microsoft Cabinet archive data',
+		'Microsoft DirectDraw Surface (DDS): 1024 x 1024',
+		'Microsoft DirectDraw Surface (DDS): 2048 x 2048',
+		'Microsoft DirectDraw Surface (DDS): 256 x 256',
+		'Microsoft Excel 2007+',
+		'Microsoft Roslyn C# debugging symbols version 1.0',
+		'Microsoft Word 2007+',
+		'Minix filesystem',
+		'MIPSEB MIPS-II ECOFF executable not stripped - version -84.0',
+		'MIPSEB-LE MIPS-III ECOFF executable - version 0.0',
+		'MS-DOS MSDOS.SYS',
+		'MSVC program database ver 7.00',
+		'Nim source code',
+		'Novell LANalyzer capture file',
+		'Objective-C source',
+		'OpenPGP Secret Key',
+		'PGP Secret Sub-key -',
+		'PHP script',
+		'Plan 9 executable',
+		'python 3.7 byte-compiled',
+		'python 3.9 byte-compiled',
+		'Qt Translation file',
+		'RDI Acoustic Doppler Current Profiler (ADCP)',
+		'Rich Text Format data',
+		'Scaleform video',
+		'Sony PlayStation PSX image',
+		'SQLite 3.x database',
+		'SQLite Write-Ahead Log',
+		'StarOffice Gallery theme ',
+		'unicos (cray) executable',
+		'very old 16-bit-int big-endian archive',
+		'very short file (no magic)',
+		'VISX image file',
+		'Windows Precompiled iNF',
+		'Windows Registry little-endian text (Win2K or above)',
+		'WOPL instrument bank',
+		'Zip data (MIME type "application/x-krita"?)',
+		'PE32 executable (console) Intel 80386 Mono/.Net assembly',
 
 		# Revisit?
 		'Python script, ASCII text',
@@ -169,64 +289,118 @@ IGNORE_TYPES = [
 		"Mach-O universal binary",
 	]
 
-
-
 IGNORE_BINARIES = set([
+	"chardetect",
+	"claunchus",
+	"Common.ExtProtocolcutor",
+	"config",
+	"Config",
+	"CrashReportClient",
+	"cwebp",
+	"DoNotClick",
+	"DXSETUP",
+	"dxwebsetup",
+	"ezTransXP.ExtProtocol",
 	"ffmpeg",
-	"zsyncmake",
-	"zsync",
-	"unitycrashhandler64",
-	"unitycrashhandler32",
+	"flashplayer_32_sa",
+	"jabswitch",
+	"java",
+	"java-rmi",
+	"java.exe",
+	"javacpl",
+	"javaw",
+	"javaws",
+	"jjs",
+	"jp2launcher",
+	"keytool",
+	"kinit",
+	"klist",
+	"ktab",
+	"launcher",
+	"notification_helper",
+	"nwjc",
+	"opensavefolder",
+	"orbd",
+	"pack200",
+	"packer",
+	"payload",
+	"policytool",
+	"pysemver",
 	"python",
 	"pythonw",
-	"notification_helper",
-	"dxwebsetup",
-	"jjs",
 	"qgen",
-	"pack200",
-	"javacpl",
-	"java.exe",
-	"unins000",
-	"ue4prereqsetup_x64",
-	"uninstaller",
-	"config",
-	"unpack200",
 	"resetconfig",
-	"claunchus",
-	"servertool",
-	"orbd",
-	"nwjc",
-	"policytool",
-	"rmiregistry",
-	"cwebp",
-	"ueprereqsetup_x64",
-	"tnameserv",
-	"launcher",
-	"subprocess",
-	"ktab",
-	"klist",
-	"kinit",
-	"jp2launcher",
-	"jabswitch",
-	"pysemver",
-	"payload",
+	"rmi",
 	"rmid",
-	"java",
+	"rmiregistry",
+	"servertool",
+	"ssvagent",
+	"subprocess",
+	"tnameserv",
+	"ue4prereqsetup_x64",
+	"ueprereqsetup_x64",
+	"unins000",
+	"uninstaller",
+	"Uninstaller",
+	"unitycrashhandler32",
+	"UnityCrashHandler32",
+	"unitycrashhandler64",
+	"UnityCrashHandler64",
+	"unpack200",
+	"unpacker",
+	"vc_redist",
+	"vc_redist.x64",
+	"vc_redist.x86",
 	"vcredist-x64",
 	"vcredist-x86",
 	"vcredist_x64",
 	"vcredist_x86",
-	"javaw",
-	"javaws",
-	"opensavefolder",
+	"zsync",
+	"zsyncmake",
 	])
 
+'''
+Bourne-Again shell script
+'''
+SHELL_SCRIPTS = [
+	'Bourne-Again shell script',
+	# 'Python script, ASCII text',
+	# 'Python script text executable Python script',
+	# 'Python script, Unicode text',
 
+]
+
+'''
+DOS executable (COM)
+DOS executable (COM
+'''
+DOS_EXECUTABLES = [
+	"DOS executable (COM",
+]
+
+
+'''
+ELF 32-bit LSB executable
+ELF 32-bit LSB relocatable
+ELF 64-bit LSB executable
+ELF 64-bit LSB pie executable
+ELF 64-bit LSB relocatable
+'''
 LINUX_EXECUTABLES = [
 	"ELF 32-bit LSB",
 	"ELF 64-bit LSB",
 ]
 
+'''
+PE32 executable (console) Intel 80386 (stripped to external PDB)
+PE32 executable (console) Intel 80386
+PE32 executable (GUI) Intel 80386 (stripped to external PDB)
+PE32 executable (GUI) Intel 80386
+PE32+ executable (console) x86-64 (stripped to external PDB)
+PE32+ executable (console) x86-64
+PE32+ executable (GUI) x86-64 (stripped to external PDB)
+PE32+ executable (GUI) x86-64
+'''
 WINDOWS_EXECUTABLES = [
 	"PE32 executable",
 	"PE32+ executable",

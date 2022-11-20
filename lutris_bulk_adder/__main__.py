@@ -62,10 +62,6 @@ def main():
 	# Required arguments
 	parser.add_argument('-d', '--directory', type=DirectoryContainer, required=True,
 						help='Directory to scan for games.')
-	parser.add_argument('-r', '--runner', type=str, required=True,
-						help='Name of Lutris runner to use.')
-	parser.add_argument('-p', '--platform', type=str, required=True, choices=PLATFORMS,
-						help='Platform name.')
 
 	# Lutris paths
 	parser.add_argument('-ld', '--lutris-database', type=str,
@@ -75,6 +71,10 @@ def main():
 						default=os.path.join(os.path.expanduser('~'), '.config', 'lutris', 'games'),
 						help='Directory containing Lutris yml files.')
 
+	# parser.add_argument('-r', '--runner', type=str, required=True,
+	# 					help='Name of Lutris runner to use.')
+	# parser.add_argument('-p', '--platform', type=str, required=True, choices=PLATFORMS,
+	# 					help='Platform name.')
 	# parser.add_argument('-lg', '--lutris-game-dir', type=DirectoryContainer,
 	# 					default=os.path.join(os.path.expanduser('~'), 'Games'),
 	# 					help='Lutris games install dir.')
@@ -109,10 +109,10 @@ def main():
 
 	no_write        = args.no_write
 
-	platform        = args.platform
-	runner          = args.runner
+	# platform        = args.platform
+	# runner          = args.runner
 
-	lutris_bulk_adder.go(lutris_database, lutris_yaml_dir, directory, no_write, platform, runner)
+	lutris_bulk_adder.go(lutris_database, lutris_yaml_dir, directory, no_write)
 
 
 # def main():
